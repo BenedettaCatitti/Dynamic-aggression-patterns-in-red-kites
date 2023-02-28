@@ -3,7 +3,7 @@
 #                                                                                     #      
 #                             R script for manuscript                                 #  
 #                                                                                     #
-#   "Turning tables: food availability shapes dynamic aggression patterns among       #
+#   "Turning tables: food availability shapes dynamic aggression behaviour among      #
 #                siblings of an asynchronously hatching species"                      #
 #                                                                                     #
 #           Authors: Benedetta Catitti, Urs G. Kormann, Martin U. Grüebler            #
@@ -45,44 +45,66 @@ peck_tot <- read_csv("./Data/peck_tot.csv")
 
 # Data Exploration
 
-n_days <- peck_tot %>% 
-          drop_na(food_cat) %>% # 2 days where observer made a mistake
-          group_by(phase, food_cat) %>%
-          distinct(Date_analysis, .keep_all=T) %>% 
-          summarise(N = dplyr::n()) # Number of days per phase and food category
-
-n_daystot <- peck_tot %>% 
-             drop_na(food_cat) %>% 
-             group_by(phase) %>% 
-             distinct(Date_analysis, .keep_all=T) %>% 
-             summarise(N = dplyr::n()) # Number of days per phase 
-
 # Create a table of interaction for early and late nestling period, and all 3 food conditions
 
 table_tot <- peck_tot %>% 
   filter(!is.na(food_cat == "NA")) %>%
   group_by(phase,food_cat, direction) %>% 
-  summarise(tot_agg= dplyr::n()) %>%
+  summarise(tot_agg = dplyr::n()) %>%
   left_join(n_days, by=c("phase","food_cat")) %>%
   mutate(av_peck = tot_agg / N) # av_peck = average number of pecks per day, food condition and direction
 
-table_tot %>% 
-  group_by(phase, food_cat) %>% 
-  summarise(av_tot = sum(av_peck)) # av_tot = average number of pecks per day and food condition. 
-
-table_tot %>% 
-  group_by(phase, food_cat) %>% 
-  summarise(av_tot = sum(tot_agg)) # av_tot = total number of pecks per day and food condition.
-
-peck_tot %>% 
+Results0 <- peck_tot %>% 
   filter(!is.na(food_cat == "NA")) %>%
   mutate(N_att = 1) %>%
   group_by(phase, Date_analysis) %>% 
   summarise(agg_tot = sum(N_att)) %>%
   group_by(phase) %>%
-  summarise(agg_mean = mean(agg_tot), SE = sd(agg_tot)/dplyr::n()) # average number of pecks per day across the two phases
+  summarise(agg_mean = mean(agg_tot), SE = sd(agg_tot)/sqrt(dplyr::n())) # average number of pecks per day across the two phases
 
-table_tot %>%  group_by(phase, direction) %>% summarise(av_dir = mean(av_peck)) # average number of pecks per direction in early and late phase, not taking into account food conditions
+Results1 <- peck_tot %>% 
+  filter(!is.na(food_cat == "NA")) %>%
+  mutate(N_att = 1) %>%
+  group_by(Date_analysis, phase, food_cat) %>%
+  summarise(N_sum = sum(N_att)) %>%
+  dplyr::select (N_sum, phase, food_cat) %>%
+  ungroup() %>%
+  group_by(phase, food_cat) %>%
+  mutate(N_sum = replace_na(N_sum, 0)) %>%
+  summarise(mean_N = mean(N_sum), sd = sd(N_sum), N = dplyr::n(), SE = sd/sqrt(N))
+
+
+Results2 <- peck_tot %>% 
+   filter(!is.na(food_cat == "NA")) %>%
+   mutate(N_att = 1) %>%
+  group_by(Date_analysis, direction, phase) %>%
+  summarise(N_sum = sum(N_att)) %>%
+  dplyr::select (N_sum, direction, phase) %>%
+  ungroup() %>%
+  tidyr::complete(direction, phase) %>%
+  group_by(phase, Date_analysis)  %>%
+  complete(direction = c("AB","BA","BC","CB","CA","AC")) %>%
+  ungroup() %>% 
+  drop_na(Date_analysis) %>%
+  group_by(phase, direction) %>%
+  mutate(N_sum = replace_na(N_sum, 0)) %>%
+  summarise(mean_N = mean(N_sum), sd = sd(N_sum), N = dplyr::n(), SE = sd/sqrt(N))
+
+Results3 <- peck_tot %>% 
+  filter(!is.na(food_cat == "NA")) %>%
+  mutate(N_att = 1) %>%
+  group_by(Date_analysis, direction, phase, food_cat) %>%
+  summarise(N_sum = sum(N_att)) %>%
+  dplyr::select (N_sum, direction, phase, food_cat) %>%
+  ungroup() %>%
+  tidyr::complete(direction, phase, food_cat) %>%
+  group_by(phase, Date_analysis, food_cat)  %>%
+  complete(direction = c("AB","BA","BC","CB","CA","AC")) %>%
+  ungroup() %>% 
+  drop_na(Date_analysis) %>%
+  group_by(phase, direction, food_cat) %>%
+  mutate(N_sum = replace_na(N_sum, 0)) %>%
+  summarise(mean_N = mean(N_sum), sd = sd(N_sum), N = dplyr::n(), SE = sd/sqrt(N))
 
 
 #  --------------------------------------- 1. Raw peck networks (Fig. 1) ------------------------------------------
@@ -227,7 +249,7 @@ peck_tot %>% group_by(phase, food_cat) %>% select(direction) %>% table # overall
 
 peck_tot %>% group_by(phase) %>%
   distinct(brood_ID, Date_analysis, .keep_all=T) %>%
-  summarise(N = mean(weight_tot,na.rm=T), SE = sd(weight_tot,na.rm=T)/dplyr::n()) # average amount of biomass per phase
+  summarise(N = mean(weight_tot,na.rm=T), SE = sd(weight_tot,na.rm=T)/sqrt(dplyr::n())) # average amount of biomass per phase
 
 summarise(N = mean(weight_tot,na.rm=T), SE = sd(weight_tot,na.rm=T)/dplyr::n())
 
